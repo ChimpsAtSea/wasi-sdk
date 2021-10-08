@@ -141,7 +141,7 @@ LIBCXX_CMAKE_FLAGS = \
     -DCMAKE_BUILD_TYPE=RelWithDebugInfo \
     -DLIBCXX_ENABLE_SHARED:BOOL=OFF \
     -DLIBCXX_ENABLE_EXPERIMENTAL_LIBRARY:BOOL=OFF \
-    -DLIBCXX_ENABLE_EXCEPTIONS:BOOL=OFF \
+    -DLIBCXX_ENABLE_EXCEPTIONS:BOOL=ON \
     -DLIBCXX_ENABLE_FILESYSTEM:BOOL=OFF \
     -DLIBCXX_CXX_ABI=libcxxabi \
     -DLIBCXX_CXX_ABI_INCLUDE_PATHS=$(LLVM_PROJ_DIR)/libcxxabi/include \
@@ -154,8 +154,8 @@ build/libcxx.BUILT: build/llvm.BUILT build/compiler-rt.BUILT build/wasi-libc.BUI
 	# Do the build.
 	mkdir -p build/libcxx
 	cd build/libcxx && cmake -G Ninja $(LIBCXX_CMAKE_FLAGS) \
-	    -DCMAKE_C_FLAGS="$(DEBUG_PREFIX_MAP) --sysroot=$(BUILD_PREFIX)/share/wasi-sysroot" \
-	    -DCMAKE_CXX_FLAGS="$(DEBUG_PREFIX_MAP) --sysroot=$(BUILD_PREFIX)/share/wasi-sysroot" \
+	    -DCMAKE_C_FLAGS="$(DEBUG_PREFIX_MAP) --sysroot=$(BUILD_PREFIX)/share/wasi-sysroot -fwasm-exceptions" \
+	    -DCMAKE_CXX_FLAGS="$(DEBUG_PREFIX_MAP) --sysroot=$(BUILD_PREFIX)/share/wasi-sysroot -fwasm-exceptions" \
 	    -DLIBCXX_LIBDIR_SUFFIX=$(ESCAPE_SLASH)/wasm32-wasi \
 	    $(LLVM_PROJ_DIR)/libcxx
 	ninja $(NINJA_FLAGS) -v -C build/libcxx
@@ -170,7 +170,7 @@ LIBCXXABI_CMAKE_FLAGS = \
     -DCMAKE_AR=$(BUILD_PREFIX)/bin/ar \
     -DCMAKE_MODULE_PATH=$(ROOT_DIR)/cmake \
     -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON \
-    -DLIBCXXABI_ENABLE_EXCEPTIONS:BOOL=OFF \
+    -DLIBCXXABI_ENABLE_EXCEPTIONS:BOOL=ON \
     -DLIBCXXABI_ENABLE_SHARED:BOOL=OFF \
     -DLIBCXXABI_SILENT_TERMINATE:BOOL=ON \
     -DLIBCXXABI_ENABLE_THREADS:BOOL=OFF \
@@ -195,14 +195,48 @@ build/libcxxabi.BUILT: build/libcxx.BUILT build/llvm.BUILT
 	# Do the build.
 	mkdir -p build/libcxxabi
 	cd build/libcxxabi && cmake -G Ninja $(LIBCXXABI_CMAKE_FLAGS) \
-	    -DCMAKE_C_FLAGS="$(DEBUG_PREFIX_MAP) --sysroot=$(BUILD_PREFIX)/share/wasi-sysroot" \
-	    -DCMAKE_CXX_FLAGS="$(DEBUG_PREFIX_MAP) --sysroot=$(BUILD_PREFIX)/share/wasi-sysroot" \
+	    -DCMAKE_C_FLAGS="$(DEBUG_PREFIX_MAP) --sysroot=$(BUILD_PREFIX)/share/wasi-sysroot -fwasm-exceptions" \
+	    -DCMAKE_CXX_FLAGS="$(DEBUG_PREFIX_MAP) --sysroot=$(BUILD_PREFIX)/share/wasi-sysroot -fwasm-exceptions" \
 	    -DLIBCXXABI_LIBDIR_SUFFIX=$(ESCAPE_SLASH)/wasm32-wasi \
 	    $(LLVM_PROJ_DIR)/libcxxabi
 	ninja $(NINJA_FLAGS) -v -C build/libcxxabi
 	# Do the install.
 	DESTDIR=$(DESTDIR) ninja $(NINJA_FLAGS) -v -C build/libcxxabi install
 	touch build/libcxxabi.BUILT
+
+# Flags for libunwind.
+LIBUNWIND_CMAKE_FLAGS = \
+    -DCMAKE_C_COMPILER_WORKS=ON \
+    -DCMAKE_CXX_COMPILER_WORKS=ON \
+    -DCMAKE_AR=$(BUILD_PREFIX)/bin/ar \
+    -DCMAKE_MODULE_PATH=$(ROOT_DIR)/cmake \
+    -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON \
+    -DLIBUNWIND_ENABLE_SHARED:BOOL=OFF \
+    -DLIBUNWIND_ENABLE_THREADS:BOOL=OFF \
+    -DLIBUNWIND_ENABLE_ASSERTIONS:BOOL=OFF \
+    -DLIBUNWIND_USE_COMPILER_RT:BOOL=ON \
+    -DCXX_SUPPORTS_CXX11=ON \
+    -DLLVM_COMPILER_CHECKED=ON \
+    -DCMAKE_BUILD_TYPE=RelWithDebugInfo \
+    -DLIBUNWIND_LIBCXX_PATH=$(LLVM_PROJ_DIR)/libcxx \
+    -DCMAKE_TOOLCHAIN_FILE=$(ROOT_DIR)/wasi-sdk.cmake \
+    -DCMAKE_STAGING_PREFIX=$(PREFIX)/share/wasi-sysroot \
+    -DWASI_SDK_PREFIX=$(BUILD_PREFIX) \
+    -DUNIX:BOOL=ON \
+    --debug-trycompile
+
+build/libunwind.BUILT: build/libcxx.BUILT build/llvm.BUILT
+	# Do the build.
+	mkdir -p build/libunwind
+	cd build/libunwind && cmake -G Ninja $(LIBUNWIND_CMAKE_FLAGS) \
+	    -DCMAKE_C_FLAGS="$(DEBUG_PREFIX_MAP) --sysroot=$(BUILD_PREFIX)/share/wasi-sysroot -fwasm-exceptions" \
+	    -DCMAKE_CXX_FLAGS="$(DEBUG_PREFIX_MAP) --sysroot=$(BUILD_PREFIX)/share/wasi-sysroot -fwasm-exceptions" \
+	    -DLIBUNWIND_LIBDIR_SUFFIX=$(ESCAPE_SLASH)/wasm32-wasi \
+	    $(LLVM_PROJ_DIR)/libunwind
+	ninja $(NINJA_FLAGS) -v -C build/libunwind
+	# Do the install.
+	DESTDIR=$(DESTDIR) ninja $(NINJA_FLAGS) -v -C build/libunwind install
+	touch build/libunwind.BUILT
 
 build/config.BUILT:
 	mkdir -p $(BUILD_PREFIX)/share/misc
@@ -211,7 +245,7 @@ build/config.BUILT:
 	cp wasi-sdk.cmake $(BUILD_PREFIX)/share/cmake
 	touch build/config.BUILT
 
-build: build/llvm.BUILT build/wasi-libc.BUILT build/compiler-rt.BUILT build/libcxxabi.BUILT build/libcxx.BUILT build/config.BUILT
+build: build/llvm.BUILT build/wasi-libc.BUILT build/compiler-rt.BUILT build/libcxxabi.BUILT build/libcxx.BUILT build/libunwind.BUILT build/config.BUILT
 
 strip: build/llvm.BUILT
 	./strip_symbols.sh $(BUILD_PREFIX)
