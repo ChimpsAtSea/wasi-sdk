@@ -134,7 +134,7 @@ build/compiler-rt.BUILT: build/llvm.BUILT build/wasi-libc.BUILT
 	cp -R $(ROOT_DIR)/build/llvm/lib/clang $(BUILD_PREFIX)/lib/
 	touch build/compiler-rt.BUILT
 
-# Flags for libcxx and libcxxabi.
+# Flags for libcxx.
 LIBCXX_CMAKE_FLAGS = \
     -DCMAKE_C_COMPILER_WORKS=ON \
     -DCMAKE_CXX_COMPILER_WORKS=ON \
@@ -163,6 +163,19 @@ LIBCXX_CMAKE_FLAGS = \
     -DWASI_SDK_PREFIX=$(BUILD_PREFIX) \
     --debug-trycompile
 
+build/libcxx.BUILT: build/llvm.BUILT build/compiler-rt.BUILT build/wasi-libc.BUILT
+	# Do the build.
+	mkdir -p build/libcxx
+	cd build/libcxx && cmake -G Ninja $(LIBCXX_CMAKE_FLAGS) \
+		-DCMAKE_SYSROOT=$(BUILD_PREFIX)/share/wasi-sysroot \
+		-DCMAKE_C_FLAGS="$(DEBUG_PREFIX_MAP) -fwasm-exceptions" \
+		-DCMAKE_CXX_FLAGS="$(DEBUG_PREFIX_MAP) -fwasm-exceptions" \
+		-DLIBCXX_LIBDIR_SUFFIX=$(ESCAPE_SLASH)/wasm32-wasi \
+		-DLIBCXXABI_LIBDIR_SUFFIX=$(ESCAPE_SLASH)/wasm32-wasi \
+		-DLLVM_ENABLE_RUNTIMES="libcxx" \
+		$(LLVM_PROJ_DIR)/runtimes
+	ninja $(NINJA_FLAGS) -C build/libcxx
+
 # Flags for libcxxabi.
 LIBCXXABI_CMAKE_FLAGS = \
     -DCMAKE_C_COMPILER_WORKS=ON \
@@ -179,27 +192,30 @@ LIBCXXABI_CMAKE_FLAGS = \
     -DLIBCXXABI_BUILD_EXTERNAL_THREAD_LIBRARY:BOOL=OFF \
     -DLIBCXXABI_HAS_WIN32_THREAD_API:BOOL=OFF \
     -DLIBCXXABI_ENABLE_PIC:BOOL=OFF \
+    -DCXX_SUPPORTS_CXX11=ON \
+    -DLLVM_COMPILER_CHECKED=ON \
+    -DCMAKE_BUILD_TYPE=RelWithDebugInfo \
+    -DLIBCXXABI_LIBCXX_PATH=$(LLVM_PROJ_DIR)/libcxx \
+    -DLIBCXXABI_LIBCXX_INCLUDES=$(BUILD_PREFIX)/share/wasi-sysroot/include/c++/v1 \
+    -DLLVM_CONFIG_PATH=$(ROOT_DIR)/build/llvm/bin/llvm-config \
+    -DCMAKE_TOOLCHAIN_FILE=$(ROOT_DIR)/wasi-sdk.cmake \
+    -DCMAKE_STAGING_PREFIX=$(PREFIX)/share/wasi-sysroot \
     -DWASI_SDK_PREFIX=$(BUILD_PREFIX) \
     -DUNIX:BOOL=ON \
-    -DLIBCXXABI_ENABLE_EXCEPTIONS:BOOL=ON \
     --debug-trycompile
 
-build/libcxx.BUILT: build/llvm.BUILT build/compiler-rt.BUILT build/wasi-libc.BUILT
+build/libcxxabi.BUILT: build/libcxx.BUILT build/llvm.BUILT
 	# Do the build.
-	mkdir -p build/libcxx
-	cd build/libcxx && cmake -G Ninja $(LIBCXX_CMAKE_FLAGS) \
-		-DCMAKE_SYSROOT=$(BUILD_PREFIX)/share/wasi-sysroot \
-		-DCMAKE_C_FLAGS="$(DEBUG_PREFIX_MAP) -fwasm-exceptions" \
-		-DCMAKE_CXX_FLAGS="$(DEBUG_PREFIX_MAP) -fwasm-exceptions" \
-		-DLIBCXX_LIBDIR_SUFFIX=$(ESCAPE_SLASH)/wasm32-wasi \
-		-DLIBCXXABI_LIBDIR_SUFFIX=$(ESCAPE_SLASH)/wasm32-wasi \
-		-DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi" \
-		$(LLVM_PROJ_DIR)/runtimes
-	ninja $(NINJA_FLAGS) -C build/libcxx
-  
+	mkdir -p build/libcxxabi
+	cd build/libcxxabi && cmake -G Ninja $(LIBCXXABI_CMAKE_FLAGS) \
+	    -DCMAKE_C_FLAGS="$(DEBUG_PREFIX_MAP) --sysroot=$(BUILD_PREFIX)/share/wasi-sysroot -fwasm-exceptions" \
+	    -DCMAKE_CXX_FLAGS="$(DEBUG_PREFIX_MAP) --sysroot=$(BUILD_PREFIX)/share/wasi-sysroot -fwasm-exceptions" \
+	    -DLIBCXXABI_LIBDIR_SUFFIX=$(ESCAPE_SLASH)/wasm32-wasi \
+	    $(LLVM_PROJ_DIR)/libcxxabi
+	ninja $(NINJA_FLAGS) -v -C build/libcxxabi
 	# Do the install.
-	DESTDIR=$(DESTDIR) ninja $(NINJA_FLAGS) -C build/libcxx install
-	touch build/libcxx.BUILT
+	DESTDIR=$(DESTDIR) ninja $(NINJA_FLAGS) -v -C build/libcxxabi install
+	touch build/libcxxabi.BUILT
 
 # Flags for libunwind.
 LIBUNWIND_CMAKE_FLAGS = \
