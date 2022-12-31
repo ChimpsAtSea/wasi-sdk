@@ -163,19 +163,6 @@ LIBCXX_CMAKE_FLAGS = \
     -DWASI_SDK_PREFIX=$(BUILD_PREFIX) \
     --debug-trycompile
 
-build/libcxx.BUILT: build/llvm.BUILT build/compiler-rt.BUILT build/wasi-libc.BUILT
-	# Do the build.
-	mkdir -p build/libcxx
-	cd build/libcxx && cmake -G Ninja $(LIBCXX_CMAKE_FLAGS) \
-	    -DCMAKE_C_FLAGS="$(DEBUG_PREFIX_MAP) --sysroot=$(BUILD_PREFIX)/share/wasi-sysroot -fwasm-exceptions" \
-	    -DCMAKE_CXX_FLAGS="$(DEBUG_PREFIX_MAP) --sysroot=$(BUILD_PREFIX)/share/wasi-sysroot -fwasm-exceptions" \
-	    -DLIBCXX_LIBDIR_SUFFIX=$(ESCAPE_SLASH)/wasm32-wasi \
-	    $(LLVM_PROJ_DIR)/libcxx
-	ninja $(NINJA_FLAGS) -v -C build/libcxx
-	# Do the install.
-	DESTDIR=$(DESTDIR) ninja $(NINJA_FLAGS) -v -C build/libcxx install
-	touch build/libcxx.BUILT
-
 # Flags for libcxxabi.
 LIBCXXABI_CMAKE_FLAGS = \
     -DCMAKE_C_COMPILER_WORKS=ON \
@@ -194,6 +181,7 @@ LIBCXXABI_CMAKE_FLAGS = \
     -DLIBCXXABI_ENABLE_PIC:BOOL=OFF \
     -DWASI_SDK_PREFIX=$(BUILD_PREFIX) \
     -DUNIX:BOOL=ON \
+    -DLIBCXXABI_ENABLE_EXCEPTIONS:BOOL=ON \
     --debug-trycompile
 
 build/libcxx.BUILT: build/llvm.BUILT build/compiler-rt.BUILT build/wasi-libc.BUILT
