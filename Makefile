@@ -183,8 +183,8 @@ build/libcxx.BUILT: build/llvm.BUILT build/compiler-rt.BUILT build/wasi-libc.BUI
 	mkdir -p build/libcxx
 	cd build/libcxx && cmake -G Ninja $(LIBCXX_CMAKE_FLAGS) \
 		-DCMAKE_SYSROOT=$(BUILD_PREFIX)/share/wasi-sysroot \
-		-DCMAKE_C_FLAGS="$(DEBUG_PREFIX_MAP) -fwasm-exceptions" \
-		-DCMAKE_CXX_FLAGS="$(DEBUG_PREFIX_MAP) -fwasm-exceptions" \
+		-DCMAKE_C_FLAGS="$(DEBUG_PREFIX_MAP) -fwasm-exceptions -DNDEBUG" \
+		-DCMAKE_CXX_FLAGS="$(DEBUG_PREFIX_MAP) -fwasm-exceptions -DNDEBUG" \
 		-DLIBCXX_LIBDIR_SUFFIX=$(ESCAPE_SLASH)/wasm32-wasi \
 		-DLIBCXXABI_LIBDIR_SUFFIX=$(ESCAPE_SLASH)/wasm32-wasi \
 		-DLIBUNWIND_LIBDIR_SUFFIX=$(ESCAPE_SLASH)/wasm32-wasi \
